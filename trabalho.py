@@ -3,74 +3,76 @@ from ufl import nabla_grad, nabla_div
 import numpy as np
 
 # Tempo total de simulação
-end_time = 5.0   
+end_time = 10.0   
 # Número de passos de tempo          
-num_steps = 500         
+num_steps = 50
 # Tamanho do passo de tempo
-dt = end_time / num_steps
+dt = Constant(end_time / num_steps)
 
 ################## Parâmetros ##################
 
 # Porosidade
-phi_f     = Constant(0.2)             
-# Coeficiente de Difusão do Patógeno
+phi_f     = Constant(0.2)           
+# Coeficiente de Difusão do Patógeno [cm^2 / h]
 D_b       = Constant(0.00005)
-# Taxa de Reprodução do Patógeno
+# Taxa de Reprodução do Patógeno  [1 / h]
 c_p       = Constant(0.15)
-# Taxa de Fagocitose
+# Taxa de Fagocitose [cm^3 / (h 10^7 cell)]
 lambda_nb = Constant(1.8)
 
 # Coeficiente de Difusão do Leucócito
 D_n       = Constant(0.00005)
-# Taxa de Quimiotaxia
-X_nb      = Constant(0.0001)
-# Taxa de Apoptose Induzida
+# Taxa de Quimiotaxia [cm^5 / (h 10^7 cell)]
+X_nb      = Constant(0.0001) 
+# Taxa de Apoptose Induzida [cm^3 / (h 10^10 cell)]
 lambda_bn = Constant(0.1)
-# Permeabilidade Capilar dos Leucócitos
+# Permeabilidade Capilar dos Leucócitos [cm^3 / (h 10^7 cell)]
 gamma_n   = Constant(0.1)
-# Concentração dos Leucócitos no Sangue
+# Concentração dos Leucócitos no Sangue [0.55 * 10^7 cell]
 C_n_max   = Constant(0.55)
-# Taxa de Apoptose
+# Taxa de Apoptose [1 / h]
 mu_n      = Constant(0.2)
 
-# ---> Obs: 1mmHg = 0.133322kPa
+# ---> Obs: 1mmHg = 0.133322 kPa
+# ---> Obs: 1kPa  = 7.50062 mmHg
+# ---> Obs: 1 / s = 3600 * 1 / h 
+# ---> Obs: 1 Pa  = 0.00750064 mmHg
+# ---> Obs: ...   = 1.3595101 ... 
 
-# Pressão Capilar
-P_c      = Constant(20.0)
-# Permeabilidade Hidráulica
-L_p_0    = Constant(3.6 * 10 ** (-8))
-# Coeficiente de Filtragem 
-k_f      = Constant(626.4)
+# Pressão Capilar [mmHg]
+P_c      = Constant(20.0 * 1.3595101)
+# Coeficiente de Filtragem (Lp0 * S/V) [1 / (s mmHg)]
+k_f      = Constant(3.6e-7 * 17.4 * 1.3595101)
 # Coeficiente de Pressão Osmótica
 sigma_0  = Constant(0.91)
-# Pressão Oncótica Capilar
-pi_c     = Constant(20.0)
-# Pressão Oncótica Intersticial
-pi_i     = Constant(10.0)
-# Influência do Patógeno na Permeabilidade Hidráulica
+# Pressão Oncótica Capilar [mmHg]
+pi_c     = Constant(20.0 * 1.3595101)
+# Pressão Oncótica Intersticial [mmHg]
+pi_i     = Constant(10.0 * 1.3595101)
+# Influência do Patógeno na Permeabilidade Hidráulica [cm^3 / (10^10 cell)]
 c_bp     = Constant(60)
-# Fluxo Linfático Normal
-q_0      = Constant(0.0001)
-# Limiar de Fluxo Linfático
-V_max    = Constant(20.0)
-# Aumento na Velocidade do Fluxo
-K_m      = Constant(6.5)
-# Pressão Inicial
+# Fluxo Linfático Normal [cm / s]
+q_0      = Constant(0.0001) 
+# Limiar de Fluxo Linfático 
+V_max    = Constant(20)
+# Aumento na Velocidade do Fluxo [mmHg]
+K_m      = Constant(6.5) 
+# Pressão Inicial [mmHg]
 P_0      = Constant(0.0)
 # Expoente (n)
-n        = Constant(5.0)
-# Primeiro Parâmetro de Lamé
+n        = Constant(5)
+# Primeiro Parâmetro de Lamé [kPa]
 lambda_s = Constant(27.293)
-# Módulo de Cisalhamento
+# Módulo de Cisalhamento [kPa]
 mu_s     = Constant(3.103)
-# Tensor de Mobilidade
-mobility_tensor = Constant(2.5e-7)
+# Tensor de Mobilidade [cm^2 / (s mmHg)]
+mobility_tensor = Constant(2.5e-7 * 1.3595101)
 
 ################## Malha ##################
 
 # Malha
 # mesh = Mesh("Imunologia.xml")
-mesh = Mesh("malha.xml")
+mesh = Mesh("malha.xml")  
 
 # print(f'Número de células: {mesh.num_cells()}')
 # print(f'Número de vértices: {mesh.num_vertices()}')
@@ -135,9 +137,6 @@ u_n4 = Function(U)
 # Função teste para fase sólida
 v_solid = TestFunction(V_solid)
 
-# Velocidade da fase sólida
-w_solid = Function(W)
-
 # Quimiotaxia Leucocitária
 w = Function(W)
 
@@ -145,6 +144,11 @@ w = Function(W)
 u_solid   = Function(V_solid)
 # Porosidade no passo de tempo anterior
 u_n_solid = Function(V_solid)
+
+# Velocidade da fase sólida
+w_solid  = Function(W)
+
+wf_solid = Function(W)
 
 ################## Condição Inicial ##################
 
@@ -161,15 +165,18 @@ u_n_solid = Function(V_solid)
 # else:
 #   return False
 
-u_n1_0 = Expression('abs((384 - 498) * x[0] + (638 - 705) * x[1] + (705 * 498 - 638 * 384)) / sqrt(pow((384 - 498), 2) + pow((638 - 705), 2)) < 4 ? 0.2 : 0.0', element, degree = 2)
+# u_n1_0 = Expression('abs((384 - 498) * x[0] + (638 - 705) * x[1] + (705 * 498 - 638 * 384)) / sqrt(pow((384 - 498), 2) + pow((638 - 705), 2)) < 4 ? 0.2 : 0.0', element, degree = 2)
+u_n1_0 = Expression('abs((3.84 - 4.98) * x[0] + (6.38 - 7.05) * x[1] + (7.05 * 4.98 - 6.38 * 3.84)) / sqrt(pow((3.84 - 4.98), 2) + pow((6.38 - 7.05), 2)) < 0.04 ? 0.2 : 0.0', element, degree = 2)
 u_n1   = project(u_n1_0, V.sub(0).collapse())
 assign(u_n.sub(0), u_n1)
+
+u_n_solid = interpolate(Constant(0.2), V_solid)
 
 u.assign(u_n)
 u_4.assign(u_n4)
 u_solid.assign(u_n_solid)
 
-# u_n_solid = interpolate(Constant(0.2), V_solid)
+u_n1, u_n2, u_n3 = split(u_n)
 
 ################## Condição de Contorno ##################
 
@@ -212,6 +219,8 @@ L = dot(f, v_4) * dx
 u_4  = Function(U)
 u_n4 = Function(U)
 
+u_n4 = project(Constant((0.0, 0.0)), U)
+
 # --> Concetração de patógenos, leucócitos e pressão
 # Fagocitose de patógenos
 rb = lambda_nb * u_1 * u_2
@@ -228,49 +237,43 @@ cf = (1.0 + c_bp * u_1)
 # Rede de vasos capilares
 qc = cf * k_f * ((P_c - u_3) - (sigma_0 / cf) * (pi_c - pi_i))
 # Rede de vasos linfáticos
-ql = - q_0 * (1 + (V_max * (u_3 - P_0) ** n) / (K_m ** n + (u_3 - P_0) ** n)) 
+ql = q_0 * (1 + (V_max * (u_3 - P_0) ** n) / (K_m ** n + (u_3 - P_0) ** n)) 
 
 beta = 3.0 / (3.0 * lambda_s + 2.0 * mu_s)
 
 F = (u_1 - u_n1) * v_1 * dx  \
-    + (dt / phi_f) * (dot(D_b * grad(u_1), grad(v_1)) * dx - (qb - rb) * v_1 * dx)  \
-    + (u_2 - u_n2) * v_2 * dx + (dt / phi_f) * (dot(grad(X_nb * u_2), w) * v_2 * dx \
-    + dot(D_n * grad(u_2), grad(v_2)) * dx - (qn - rn) * v_2 * dx) \
+    + (dt / phi_f) * (D_b * dot(grad(u_1), grad(v_1)) * dx - (qb - rb) * v_1 * dx)  \
+    + (u_2 - u_n2) * v_2 * dx + (dt / phi_f) * (dot(w, grad(u_2)) * v_2 * dx \
+    + D_n * dot(grad(u_2), grad(v_2)) * dx - (qn - rn) * v_2 * dx) \
     + (u_3 - u_n3) * v_3 * dx \
-    + (dt / beta) * (dot(mobility_tensor * grad(u_3), grad(v_3)) * dx + qc * v_3 * dx \
+    + (dt / beta) * (mobility_tensor * dot(grad(u_3), grad(v_3)) * dx - qc * v_3 * dx \
     + ql * v_3 * dx(1))
 
-# SUPG (Streamline Upwind Petrov-Galerkin)
-res   = u_2 - u_n2 + (dt / phi_f) * (dot(grad(X_nb * u_2), w) - div(D_n * grad(u_2)) - (-rn  + qn))
-h     = CellDiameter(mesh)
-vnorm = sqrt(dot(w, w) + 1e-10)
-F    += (h / (2.0 * vnorm)) * dot(w, grad(v_2)) * res * dx
-
-dt_c = Constant(dt)
-
 # Fase sólida
-F_solid = ((u_solid - u_n_solid)) * v_solid * dx - dt_c * (dot(u_solid * w_solid, grad(v_solid)) * dx)
+F_solid = ((u_solid - u_n_solid)) * v_solid * dx + dt * (dot(u_solid * w_solid, grad(v_solid)) * dx)
 
-vtkfile_u_1     = File('edema_mecanico_lymph_porosity_v2/C_p.pvd')
-vtkfile_u_2     = File('edema_mecanico_lymph_porosity_v2/C_l.pvd')
-vtkfile_u_3     = File('edema_mecanico_lymph_porosity_v2/P.pvd')
-vtkfile_u_4     = File('edema_mecanico_lymph_porosity_v2/U.pvd')
-vtkfile_u_solid = File('edema_mecanico_lymph_porosity_v2/Phi_f.pvd')
+vtkfile_u_1     = File('output/C_p.pvd')
+vtkfile_u_2     = File('output/C_l.pvd')
+vtkfile_u_3     = File('output/P.pvd')
+vtkfile_u_4     = File('output/U.pvd')
+vtkfile_u_solid = File('output/Phi_f.pvd')
+vtkfile_w_solid = File('output/vel.pvd')
 
 t = 0.0
 
-_u_n1, _u_n2, _u_n3 = u_n.split()
-vtkfile_u_1     << (_u_n1, t)
-vtkfile_u_2     << (_u_n2, t)        
-vtkfile_u_3     << (_u_n3, t)
-vtkfile_u_4     << u_n4
+_u_1, _u_2, _u_3 = u.split()
+vtkfile_u_1     << (_u_1, t)
+vtkfile_u_2     << (_u_2, t)        
+vtkfile_u_3     << (_u_3, t)
+vtkfile_u_4     << u_4
 vtkfile_u_solid << u_solid
+vtkfile_w_solid << w_solid
 
 for i in range(num_steps):
     print(f'Step {i} de {num_steps}')
     t += dt  
     
-    wf = grad(u.sub(0))        
+    wf = X_nb * grad(u.sub(0))        
     wf = project(wf, W)
     w.assign(wf)
 
@@ -283,9 +286,13 @@ for i in range(num_steps):
 
     print('Resolvendo U')
     solve(a == L, u_4, bc)
+
+    wf_solid = ((u_4 - u_n4) / dt)
+    wf_solid = project(wf_solid, W)
+    w_solid.assign(wf_solid)
     
     print('Resolvendo Phi')
-    solve(F_solid == 0, u_solid)
+    solve(F_solid == 0, u_solid, solver_parameters = solver_parameters)
 
     _u_1, _u_2, _u_3 = u.split()
     vtkfile_u_1     << (_u_1, t)
@@ -293,7 +300,8 @@ for i in range(num_steps):
     vtkfile_u_3     << (_u_3, t)
     vtkfile_u_4     << u_4
     vtkfile_u_solid << u_solid
-        
+    vtkfile_w_solid << w_solid
+
     u_n.assign(u)
     u_n4.assign(u_4)
     u_n_solid.assign(u_solid)
