@@ -152,15 +152,15 @@ wf_solid = Function(W)
 
 ################## Condição Inicial ##################
 
-# x1 = 638
-# y1 = 498
-# x2 = 705
-# y2 = 384
+# x1 = 6.38
+# y1 = 4.98
+# x2 = 7.05
+# y2 = 3.84
 # A = y2 - y1
 # B = x1 - x2
 # C = x2 * y1 - x1 * y2
 # d = abs(A * x[0] + B * x[1] + C) / np.sqrt(A ** 2 + B ** 2)
-# if d < 4:
+# if d < 0.04:
 #   return True
 # else:
 #   return False

@@ -3,9 +3,9 @@ from ufl import nabla_grad, nabla_div
 import numpy as np
 
 # Tempo total de simulação
-end_time = 20.0   
+end_time = 10.0   
 # Número de passos de tempo          
-num_steps = 100
+num_steps = 50
 # Tamanho do passo de tempo
 dt = Constant(end_time / num_steps)
 
@@ -152,21 +152,21 @@ wf_solid = Function(W)
 
 ################## Condição Inicial ##################
 
-# x1 = 341
-# y1 = 400
-# x2 = 368
-# y2 = 385
+# x1 = 3.23
+# y1 = 4.13
+# x2 = 3.69
+# y2 = 3.94
 
-# x1 = 368
-# y1 = 385
-# x2 = 387
-# y2 = 342
+# x1 = 3.69
+# y1 = 3.94
+# x2 = 3.86
+# y2 = 3.62
 
 # A = y2 - y1
 # B = x1 - x2
 # C = x2 * y1 - x1 * y2
 # d = abs(A * x[0] + B * x[1] + C) / np.sqrt(A ** 2 + B ** 2)
-# if d < 4:
+# if d < 0.01:
 #   return True
 # else:
 #   return False
